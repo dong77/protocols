@@ -53,7 +53,8 @@ library AmmPoolToken
         internal
         returns (bool)
     {
-        if (S.allowance[from][msg.sender] != uint(-1)) {
+        if (msg.sender != address(this) &&
+            S.allowance[from][msg.sender] != uint(-1)) {
             S.allowance[from][msg.sender] = S.allowance[from][msg.sender].sub(value);
         }
          _transfer(S, from, to, value);
@@ -155,8 +156,10 @@ library AmmPoolToken
         )
         private
     {
-        S.allowance[owner][spender] = value;
-        emit Approval(owner, spender, value);
+        if (spender != address(this)) {
+            S.allowance[owner][spender] = value;
+            emit Approval(owner, spender, value);
+        }
     }
 
     function _transfer(
