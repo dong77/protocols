@@ -85,7 +85,7 @@ library AmmExitProcess
             S.isExiting[msg.sender] = false;
         }
         uint96[] memory amounts;
-        (valid, amounts) = validateExitAmounts(S, ctx, exit);
+        (valid, amounts) = _validateExitAmounts(S, ctx, exit);
 
         if (!valid) { return false; }
 
@@ -129,7 +129,7 @@ library AmmExitProcess
         }
     }
 
-    function validateExitAmounts(
+    function _validateExitAmounts(
         AmmData.State    storage S,
         AmmData.Context  memory  ctx,
         AmmData.PoolExit memory  exit

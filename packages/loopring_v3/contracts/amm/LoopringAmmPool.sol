@@ -31,7 +31,7 @@ contract LoopringAmmPool is
     using AmmStatus        for AmmData.State;
 
     event Deposit   (address owner, uint96[] amounts);
-    event Withdrawal(address owner, uint[]  amounts);
+    event Withdrawal(address owner, uint[] amountOuts);
 
     event PoolJoinRequested(AmmData.PoolJoin join);
     event PoolExitRequested(AmmData.PoolExit exit);
@@ -128,8 +128,13 @@ contract LoopringAmmPool is
         external
         nonReentrant
     {
-        uint[] memory withdrawn = state.withdraw(poolAmount, amounts, signature, validUntil);
-        emit Withdrawal(msg.sender, withdrawn);
+        uint[] memory amountOuts = state.withdraw(
+            poolAmount,
+            amounts,
+            signature,
+            validUntil
+        );
+        emit Withdrawal(msg.sender, amountOuts);
     }
 
     function joinPool(

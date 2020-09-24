@@ -83,7 +83,7 @@ library AmmJoinProcess
         );
 
         // Check if the requirements are fulfilled
-        (bool valid, uint poolAmountOut, uint96[] memory amounts) = validateJoinAmounts(ctx, join);
+        (bool valid, uint poolAmountOut, uint96[] memory amounts) = _validateJoinAmounts(ctx, join);
 
         if (!valid) return;
 
@@ -124,7 +124,7 @@ library AmmJoinProcess
         }
     }
 
-    function validateJoinAmounts(
+    function _validateJoinAmounts(
         AmmData.Context  memory ctx,
         AmmData.PoolJoin memory join
         )

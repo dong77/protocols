@@ -39,11 +39,11 @@ library AmmJoinRequest
 
         // if (poolAmount > 0) {
         //     address poolToken = address(this);
-        //     transferTokenInToLock(S, poolToken, poolAmount);
+        //     _depositToken(S, poolToken, poolAmount);
         // }
 
         for (uint i = 0; i < size; i++) {
-            transferTokenInToLock(S, S.tokens[i].addr, uint(amounts[i]));
+            _depositToken(S, S.tokens[i].addr, uint(amounts[i]));
         }
     }
 
@@ -76,7 +76,7 @@ library AmmJoinRequest
         S.approvedTx[txHash] = 0xffffffff;
     }
 
-    function transferTokenInToLock(
+    function _depositToken(
         AmmData.State storage S,
         address               token,
         uint                  amount

@@ -59,12 +59,12 @@ library AmmBlockReceiver
 
         // Process all pool transactions
         for (uint i = 0; i < poolTransactions.length; i++) {
-            processPoolTransaction(S, ctx, poolTransactions[i]);
+            _processPoolTransaction(S, ctx, poolTransactions[i]);
         }
 
         // Deposit/Withdraw to/from the AMM account when necessary
         for (uint i = 0; i < size; i++) {
-            processPoolBalance(
+            _processPoolBalance(
                 S,
                 ctx,
                 ctx.tokens[i],
@@ -79,7 +79,7 @@ library AmmBlockReceiver
         return ctx.numTransactionsConsumed;
     }
 
-    function processPoolTransaction(
+    function _processPoolTransaction(
         AmmData.State           storage S,
         AmmData.Context         memory  ctx,
         AmmData.PoolTransaction memory  poolTx
@@ -101,7 +101,7 @@ library AmmBlockReceiver
         }
     }
 
-    function processPoolBalance(
+    function _processPoolBalance(
         AmmData.State   storage S,
         AmmData.Context memory  ctx,
         AmmData.Token   memory  token,

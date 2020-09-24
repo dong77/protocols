@@ -44,52 +44,26 @@ library AmmExitRequest
         uint                  validUntil
         )
         public
-        returns (uint[] memory withdrawn)
+        returns (uint[] memory amountOuts)
     {
-        require(amounts.length == S.tokens.length, "INVALID_DATA");
+        bool approved = _checkOperatorApproval(
+            S, poolAmount, amounts, signature, validUntil
+        );
 
-        // Check if we can withdraw without unlocking with an approval
-        // from the operator.
-        if (signature.length == 0) {
-            require(validUntil == 0, "INVALID_VALUE");
-        } else {
-            require(validUntil >= block.timestamp, 'SIGNATURE_EXPIRED');
-            bytes32 withdrawHash = EIP712.hashPacked(
-                S.domainSeperator,
-                keccak256(
-                    abi.encode(
-                        WITHDRAW_TYPEHASH,
-                        msg.sender,
-                        poolAmount,
-                        keccak256(abi.encodePacked(amounts)),
-                        validUntil,
-                        S.nonces[msg.sender]++
-                    )
-                )
-            );
-            require(
-                withdrawHash.verifySignature(S.exchange.owner(), signature),
-                "INVALID_SIGNATURE"
-            );
-        }
-
-        withdrawFromExchangeApprovedWithdrawals(S);
+        _withdrawFromExchangeApprovedWithdrawals(S);
 
         // Withdraw
-        withdrawn = new uint[](S.tokens.length + 1);
-        for (uint i = 0; i < S.tokens.length + 1; i++) {
-            address token = i < S.tokens.length ? S.tokens[i].addr : address(this);
-            uint amount = i < S.tokens.length ? amounts[i] : poolAmount;
-            uint available = signature.length > 0 ?
-                S.lockedBalance[token][msg.sender] :
-                S.availableBalance(token, msg.sender);
+        uint size = S.tokens.length;
+        amountOuts = new uint[](size + 1);
 
-            withdrawn[i] =  amount > available ? available : amount;
+        amountOuts[0] = _withdrawToken(
+            S, address(this), poolAmount, approved
+        );
 
-            if (withdrawn[i] > 0) {
-                S.lockedBalance[token][msg.sender] = S.lockedBalance[token][msg.sender].sub(withdrawn[i]);
-                AmmUtil.tranferOut(token, withdrawn[i], msg.sender);
-            }
+        for (uint i = 0; i < size; i++) {
+            amountOuts[i + 1] = _withdrawToken(
+                S, S.tokens[i].addr, amounts[i], approved
+            );
         }
     }
 
@@ -123,8 +97,68 @@ library AmmExitRequest
         S.approvedTx[txHash] = block.timestamp;
     }
 
+    function _checkOperatorApproval(
+        AmmData.State storage S,
+        uint                  poolAmount,
+        uint[]       calldata amounts,
+        bytes        calldata signature, // signature from Exchange operator
+        uint                  validUntil
+        )
+        private
+        returns (bool)
+    {
+        require(amounts.length == S.tokens.length, "INVALID_DATA");
+        // Check if we can withdraw without unlocking with an approval
+        // from the operator.
+        if (signature.length == 0) {
+            require(validUntil == 0, "INVALID_VALUE");
+            return false;
+        }
+
+        require(validUntil >= block.timestamp, 'SIGNATURE_EXPIRED');
+        bytes32 withdrawHash = EIP712.hashPacked(
+            S.domainSeperator,
+            keccak256(
+                abi.encode(
+                    WITHDRAW_TYPEHASH,
+                    msg.sender,
+                    poolAmount,
+                    keccak256(abi.encodePacked(amounts)),
+                    validUntil,
+                    S.nonces[msg.sender]++
+                )
+            )
+        );
+        require(
+            withdrawHash.verifySignature(S.exchange.owner(), signature),
+            "INVALID_SIGNATURE"
+        );
+        return true;
+    }
+
+    function _withdrawToken(
+        AmmData.State storage S,
+        address               token,
+        uint                  amount,
+        bool                  approvedByOperator
+        )
+        private
+        returns (uint withdrawn)
+    {
+        uint available = approvedByOperator ?
+            S.lockedBalance[token][msg.sender] :
+            S.availableBalance(token, msg.sender);
+
+        withdrawn =  (amount > available || amount == 0) ? available : amount;
+
+        if (withdrawn > 0) {
+            S.lockedBalance[token][msg.sender] = S.lockedBalance[token][msg.sender].sub(withdrawn);
+            AmmUtil.tranferOut(token, withdrawn, msg.sender);
+        }
+    }
+
     // Withdraw any outstanding balances for the pool account on the exchange
-    function withdrawFromExchangeApprovedWithdrawals(AmmData.State storage S)
+    function _withdrawFromExchangeApprovedWithdrawals(AmmData.State storage S)
         private
     {
         address[] memory owners = new address[](S.tokens.length);
