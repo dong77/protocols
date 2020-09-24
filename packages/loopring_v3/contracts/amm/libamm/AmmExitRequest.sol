@@ -28,36 +28,31 @@ library AmmExitRequest
         "Withdraw(address owner,uint256 poolAmount,uint256[] amounts,uint256 validUntil,uint256 nonce)"
     );
 
-    function setLockedUntil(
-        AmmData.State storage S,
-        uint                  timestamp
-        )
-        public
+    function unlock(AmmData.State storage S)
+        internal
+        returns (uint lockedUntil)
     {
-        if (timestamp > 0) {
-            require(
-                timestamp >= block.timestamp + AmmData.MIN_TIME_TO_UNLOCK(),
-                "TOO_SOON"
-            );
-        }
-        S.lockedUntil[msg.sender] = timestamp;
+        lockedUntil = block.timestamp + AmmData.MIN_TIME_TO_UNLOCK();
+        S.lockedUntil[msg.sender] = lockedUntil;
     }
 
     function withdraw(
         AmmData.State storage S,
         uint                  poolAmount,
         uint[]       calldata amounts,
-        uint                  validUntil,
-        bytes        calldata signature
+        bytes        calldata signature, // signature from Exchange operator
+        uint                  validUntil
         )
         public
         returns (uint[] memory withdrawn)
     {
         require(amounts.length == S.tokens.length, "INVALID_DATA");
 
-        // Check if we can withdraw without unlocking
-
-        if (signature.length > 0) {
+        // Check if we can withdraw without unlocking with an approval
+        // from the operator.
+        if (signature.length == 0) {
+            require(validUntil == 0, "INVALID_VALUE");
+        } else {
             require(validUntil >= block.timestamp, 'SIGNATURE_EXPIRED');
             bytes32 withdrawHash = EIP712.hashPacked(
                 S.domainSeperator,
@@ -78,7 +73,7 @@ library AmmExitRequest
             );
         }
 
-        withdrawFromExchangeWithApprovedWithdrawals(S);
+        withdrawFromExchangeApprovedWithdrawals(S);
 
         // Withdraw
         withdrawn = new uint[](S.tokens.length + 1);
@@ -129,7 +124,7 @@ library AmmExitRequest
     }
 
     // Withdraw any outstanding balances for the pool account on the exchange
-    function withdrawFromExchangeWithApprovedWithdrawals(AmmData.State storage S)
+    function withdrawFromExchangeApprovedWithdrawals(AmmData.State storage S)
         private
     {
         address[] memory owners = new address[](S.tokens.length);

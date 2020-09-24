@@ -30,8 +30,8 @@ contract LoopringAmmPool is
     using AmmPoolToken     for AmmData.State;
     using AmmStatus        for AmmData.State;
 
-    event Deposit   (address owner, uint poolAmount, uint96[] amounts);
-    event Withdrawal(address owner, uint256[] amounts);
+    event Deposit   (address owner, uint96[] amounts);
+    event Withdrawal(address owner, uint[]  amounts);
 
     event PoolJoinRequested(AmmData.PoolJoin join);
     event PoolExitRequested(AmmData.PoolExit exit);
@@ -108,16 +108,28 @@ contract LoopringAmmPool is
     }
 
     function deposit(
-        uint96            poolAmount,
-        uint96[] calldata amounts
+        uint96[] calldata maxAmountsIn
         )
         external
         payable
         onlyWhenOnline
         nonReentrant
     {
-        state.deposit(poolAmount, amounts);
-        emit Deposit(msg.sender, poolAmount, amounts);
+        state.deposit(maxAmountsIn);
+        emit Deposit(msg.sender, maxAmountsIn);
+    }
+
+    function withdraw(
+        uint            poolAmount,
+        uint[] calldata amounts,
+        bytes  calldata signature,
+        uint            validUntil
+        )
+        external
+        nonReentrant
+    {
+        uint[] memory withdrawn = state.withdraw(poolAmount, amounts, signature, validUntil);
+        emit Withdrawal(msg.sender, withdrawn);
     }
 
     function joinPool(
@@ -139,28 +151,6 @@ contract LoopringAmmPool is
         emit PoolJoinRequested(join);
     }
 
-    function depositAndJoinPool(
-        uint              minPoolAmountOut,
-        uint96[] calldata maxAmountsIn,
-        bool              fromLayer2,
-        uint              validUntil
-        )
-        external
-        onlyWhenOnline
-        nonReentrant
-    {
-        state.deposit(0, maxAmountsIn);
-        state.joinPool(minPoolAmountOut, maxAmountsIn, fromLayer2, validUntil);
-    }
-
-    function setLockedUntil(uint timestamp)
-        external
-        nonReentrant
-    {
-        state.setLockedUntil(timestamp);
-        emit LockedUntil(msg.sender, timestamp);
-    }
-
     function exitPool(
         uint              poolAmountIn,
         uint96[] calldata minAmountsOut,
@@ -178,17 +168,12 @@ contract LoopringAmmPool is
         emit PoolExitRequested(exit);
     }
 
-    function withdraw(
-        uint            poolAmount,
-        uint[] calldata amounts,
-        uint            validUntil,
-        bytes  calldata signature
-        )
+    function unlock()
         external
         nonReentrant
     {
-        uint[] memory withdrawn = state.withdraw(poolAmount, amounts, validUntil, signature);
-        emit Withdrawal(msg.sender, withdrawn);
+        uint lockedUntil = state.unlock();
+        emit LockedUntil(msg.sender, lockedUntil);
     }
 
     function beforeBlockSubmitted(

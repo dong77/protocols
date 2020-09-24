@@ -22,7 +22,7 @@ library AmmJoinRequest
 
     function deposit(
         AmmData.State storage S,
-        uint                  poolAmount,
+        // uint                  poolAmount,
         uint96[]     calldata amounts
         )
         public
@@ -30,20 +30,20 @@ library AmmJoinRequest
         uint size = S.tokens.length;
         require(amounts.length == size, "INVALID_DATA");
 
-        if (S.isExiting[msg.sender]) {
-            // Q: 这个标记的用途？
-            // This could suddenly change the amount of liquidity tokens available, which
-            // could change how the operator needs to process the exit.
-            require(poolAmount == 0, "CANNOT_DEPOSIT_LIQUIDITY_TOKENS_WHILE_EXITING");
-        }
+        // if (S.isExiting[msg.sender]) {
+        //     // Q: 这个标记的用途？
+        //     // This could suddenly change the amount of liquidity tokens available, which
+        //     // could change how the operator needs to process the exit.
+        //     require(poolAmount == 0, "CANNOT_DEPOSIT_LIQUIDITY_TOKENS_WHILE_EXITING");
+        // }
 
-        if (poolAmount > 0) {
-            address poolToken = address(this);
-            depositAndLockToken(S, poolToken, poolAmount);
-        }
+        // if (poolAmount > 0) {
+        //     address poolToken = address(this);
+        //     transferTokenInToLock(S, poolToken, poolAmount);
+        // }
 
         for (uint i = 0; i < size; i++) {
-            depositAndLockToken(S, S.tokens[i].addr, uint(amounts[i]));
+            transferTokenInToLock(S, S.tokens[i].addr, uint(amounts[i]));
         }
     }
 
@@ -76,7 +76,7 @@ library AmmJoinRequest
         S.approvedTx[txHash] = 0xffffffff;
     }
 
-    function depositAndLockToken(
+    function transferTokenInToLock(
         AmmData.State storage S,
         address               token,
         uint                  amount
