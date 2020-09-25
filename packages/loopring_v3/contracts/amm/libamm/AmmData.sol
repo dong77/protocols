@@ -22,6 +22,17 @@ library AmmData
         EXIT
     }
 
+    struct PoolConfig
+    {
+        address   exchange;
+        string    poolName;
+        uint32    accountID;
+        address[] tokens;
+        uint96[]  weights;
+        uint8     feeBips;
+        string    tokenSymbol;
+    }
+
     struct PoolJoin
     {
         address  owner;
