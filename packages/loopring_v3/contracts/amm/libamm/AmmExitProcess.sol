@@ -96,8 +96,6 @@ library AmmExitProcess
 
         if (!slippageRequirementMet) return;
 
-        S.burn(exit.owner, exit.poolAmountIn);
-
         for (uint i = 0; i < ctx.size; i++) {
             uint96 amount = amounts[i];
             if (exit.toLayer2) {
@@ -131,6 +129,8 @@ library AmmExitProcess
 
             ctx.ammExpectedL2Balances[i] = ctx.ammExpectedL2Balances[i].sub(amount);
         }
+
+        S.burn(exit.owner, exit.poolAmountIn);
     }
 
     function _validateExitAmounts(
