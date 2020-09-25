@@ -45,7 +45,6 @@ library AmmExitProcess
         withdrawal.minGas = 0;
         withdrawal.to = address(this);
         withdrawal.extraData = new bytes(0);
-        withdrawal.validUntil = 0xffffffff;
 
         require(
             withdrawal.withdrawalType == 1 && // Question(brecht): should this be 1?
@@ -66,6 +65,7 @@ library AmmExitProcess
         );
 
         // Now approve this withdrawal
+        withdrawal.validUntil = 0xffffffff;
         bytes32 txHash = WithdrawTransaction.hashTx(ctx.exchangeDomainSeparator, withdrawal);
         ctx.exchange.approveTransaction(address(this), txHash);
 
@@ -80,21 +80,21 @@ library AmmExitProcess
         bytes            memory  signature
         )
         internal
-        returns (bool valid)
     {
         S.validatePoolTransaction(
             exit.owner,
             AmmUtil.hashPoolExit(ctx.domainSeperator, exit),
             signature
         );
+
         if (signature.length == 0) {
             // This is an onchain exit, we're processing it now so stop tracking it.
             S.isExiting[msg.sender] = false;
         }
-        uint96[] memory amounts;
-        (valid, amounts) = _validateExitAmounts(S, ctx, exit);
 
-        if (!valid) { return false; }
+        (bool slippageRequirementMet, uint96[] memory amounts) = _validateExitAmounts(S, ctx, exit);
+
+        if (!slippageRequirementMet) return;
 
         S.burn(exit.owner, exit.poolAmountIn);
 
@@ -104,27 +104,24 @@ library AmmExitProcess
                 TransferTransaction.Transfer memory transfer = ctx._block.readTransfer(ctx.txIdx++);
                 ctx.numTransactionsConsumed++;
 
-                require(transfer.fromAccountID == S.accountID, "INVALID_TX_DATA");
-                require(transfer.from == address(this), "INVALID_TX_DATA");
-                require(transfer.to == exit.owner, "INVALID_TX_DATA");
-                require(transfer.tokenID == ctx.tokens[i].tokenID, "INVALID_TX_DATA");
-                require(transfer.amount.isAlmostEqual(amount), "INVALID_TX_DATA");
-                require(transfer.fee == 0, "INVALID_TX_DATA");
-
-                if (signature.length != 0) {
-                    // Replay protection (only necessary when using a signature)
-                    require(transfer.storageID == exit.storageIDs[i], "INVALID_TX_DATA");
-                }
+                require(
+                    transfer.fromAccountID == S.accountID &&
+                    transfer.from == address(this) &&
+                    transfer.to == exit.owner &&
+                    transfer.tokenID == ctx.tokens[i].tokenID &&
+                    transfer.amount.isAlmostEqual(amount) &&
+                    transfer.feeTokenID == 0 &&
+                    transfer.fee == 0 &&
+                    transfer.storageID == (signature.length > 0 ? exit.storageIDs[i] : 0), // Question (brecht):is this right?
+                    "INVALID_OUTBOUND_TX_DATA"
+                );
 
                 // Now approve this transfer
                 transfer.validUntil = 0xffffffff;
                 bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
                 ctx.exchange.approveTransaction(address(this), txHash);
 
-                // Update the amount to the actual amount transferred (which can have some some small rounding errors)
                 amount = transfer.amount;
-
-                // Update the balances in the account
                 ctx.ammActualL2Balances[i] = ctx.ammActualL2Balances[i].sub(amount);
             } else {
                 address token = ctx.tokens[i].addr;
@@ -144,7 +141,7 @@ library AmmExitProcess
         private
         view
         returns(
-            bool /* valid */,
+            bool /* slippageRequirementMet */,
             uint96[] memory amounts
         )
     {

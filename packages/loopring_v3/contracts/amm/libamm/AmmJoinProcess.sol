@@ -116,7 +116,6 @@ library AmmJoinProcess
                 bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
                 ctx.exchange.approveTransaction(join.owner, txHash);
 
-
                 uint96 refundAmount = 0;
                 if (!transfer.amount.isAlmostEqual(amount)) {
                     refundAmount = transfer.amount.sub(amount);
@@ -126,9 +125,10 @@ library AmmJoinProcess
                     transfer = ctx._block.readTransfer(ctx.txIdx++);
                     ctx.numTransactionsConsumed++;
 
-                    // We do not check these fields: toAccountID, from
+                    // We do not check these fields: toAccountID
                     require(
                         transfer.fromAccountID == S.accountID &&
+                        transfer.from == address(this) &&
                         transfer.to == join.owner &&
                         transfer.tokenID == ctx.tokens[i].tokenID &&
                         transfer.amount.isAlmostEqual(refundAmount) &&
@@ -138,6 +138,7 @@ library AmmJoinProcess
                         "INVALID_OUTBOUND_TX_DATA"
                     );
 
+                   // Now approve this transfer
                     transfer.validUntil = 0xffffffff;
                     txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
                     ctx.exchange.approveTransaction(address(this), txHash);
