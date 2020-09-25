@@ -41,28 +41,31 @@ library AmmExitProcess
         WithdrawTransaction.Withdrawal memory withdrawal = ctx._block.readWithdrawal(ctx.txIdx++);
         ctx.numTransactionsConsumed++;
 
-        require(withdrawal.owner == address(this), "INVALID_TX_DATA");
-        require(withdrawal.accountID == S.accountID, "INVALID_TX_DATA");
-        require(withdrawal.tokenID == token.tokenID, "INVALID_TX_DATA");
-        // Question(brecht):should we use the following?
-        // require(withdrawal.amount.isAlmostEqual(amount), "INVALID_TX_DATA");
-        require(withdrawal.amount == amount, "INVALID_TX_DATA");
-        require(withdrawal.feeTokenID == withdrawal.tokenID, "INVALID_TX_DATA");
-        require(withdrawal.fee == 0, "INVALID_TX_DATA");
+        // These fields are not read by readWithdrawal:
         withdrawal.minGas = 0;
         withdrawal.to = address(this);
         withdrawal.extraData = new bytes(0);
+        withdrawal.validUntil = 0xffffffff;
 
-        bytes20 onchainDataHash = WithdrawTransaction.hashOnchainData(
-            withdrawal.minGas,
-            withdrawal.to,
-            withdrawal.extraData
+        require(
+            withdrawal.withdrawalType == 1 && // Question(brecht): should this be 1?
+            withdrawal.owner == address(this) &&
+            withdrawal.accountID == S.accountID &&
+            withdrawal.tokenID == token.tokenID &&
+            // withdrawal.amount.isAlmostEqual(amount) && // Question(brecht):should we use isAlmostEqual?
+            withdrawal.amount == amount &&
+            withdrawal.feeTokenID == 0 &&
+            withdrawal.fee == 0 &&
+            withdrawal.storageID == 0 && // Question(brecht):should we check this ID?
+            withdrawal.onchainDataHash == WithdrawTransaction.hashOnchainData(
+                withdrawal.minGas,
+                withdrawal.to,
+                withdrawal.extraData
+            ),
+            "INVALID_TX_DATA"
         );
-        require(withdrawal.onchainDataHash == onchainDataHash, "INVALID_TX_DATA");
 
         // Now approve this withdrawal
-        // Question(brecht):should we simply check the value is indeed 0xffffffff???
-        withdrawal.validUntil = 0xffffffff;
         bytes32 txHash = WithdrawTransaction.hashTx(ctx.exchangeDomainSeparator, withdrawal);
         ctx.exchange.approveTransaction(address(this), txHash);
 
@@ -114,7 +117,6 @@ library AmmExitProcess
                 }
 
                 // Now approve this transfer
-                // Question(brecht):should we simply check the value is indeed 0xffffffff???
                 transfer.validUntil = 0xffffffff;
                 bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
                 ctx.exchange.approveTransaction(address(this), txHash);

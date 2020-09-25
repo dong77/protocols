@@ -149,7 +149,7 @@ library AmmExitRequest
             S.lockedBalance[token][msg.sender] :
             S.availableBalance(token, msg.sender);
 
-        withdrawn =  (amount > available || amount == 0) ? available : amount;
+        withdrawn = (amount > available || amount == 0) ? available : amount;
 
         if (withdrawn > 0) {
             S.lockedBalance[token][msg.sender] = S.lockedBalance[token][msg.sender].sub(withdrawn);
@@ -161,10 +161,11 @@ library AmmExitRequest
     function _proxcessExchangeWithdrawalApprovedWithdrawals(AmmData.State storage S)
         private
     {
-        address[] memory owners = new address[](S.tokens.length);
-        address[] memory tokenAddresses = new address[](S.tokens.length);
+        uint size = S.tokens.length;
+        address[] memory owners = new address[](size);
+        address[] memory tokenAddresses = new address[](size);
 
-        for (uint i = 0; i < S.tokens.length; i++) {
+        for (uint i = 0; i < size; i++) {
             owners[i] = address(this);
             tokenAddresses[i] = S.tokens[i].addr;
         }

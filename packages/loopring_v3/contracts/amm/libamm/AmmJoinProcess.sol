@@ -43,12 +43,14 @@ library AmmJoinProcess
         DepositTransaction.Deposit memory deposit = ctx._block.readDeposit(ctx.txIdx++);
         ctx.numTransactionsConsumed++;
 
-        require(deposit.owner == address(this), "INVALID_TX_DATA");
-        require(deposit.accountID == S.accountID, "INVALID_TX_DATA");
-        require(deposit.tokenID == token.tokenID, "INVALID_TX_DATA");
-        // Question(Brecht):should use this:
-        // require(deposit.amount.isAlmostEqual(amount), "INVALID_TX_DATA");
-        require(deposit.amount == amount, "INVALID_TX_DATA");
+        require(
+            deposit.owner == address(this) &&
+            deposit.accountID == S.accountID &&
+            deposit.tokenID == token.tokenID &&
+            // deposit.amount.isAlmostEqual(amount),
+            deposit.amount == amount,
+            "INVALID_TX_DATA"
+        );
 
         // Now do this deposit
         uint ethValue = 0;
@@ -100,47 +102,46 @@ library AmmJoinProcess
                 TransferTransaction.Transfer memory transfer = ctx._block.readTransfer(ctx.txIdx++);
                 ctx.numTransactionsConsumed++;
 
-                require(transfer.from == join.owner, "INVALID_TX_DATA");
-                require(transfer.toAccountID == S.accountID, "INVALID_TX_DATA");
-                require(transfer.tokenID == ctx.tokens[i].tokenID, "INVALID_TX_DATA");
-                require(transfer.fee == 0, "INVALID_TX_DATA");
+                // We do not check these fields: fromAccountID, to, amount, feeTokenID, fee
+                require(
+                    transfer.toAccountID == S.accountID &&
+                    transfer.from == join.owner &&
+                    transfer.tokenID == ctx.tokens[i].tokenID &&
+                    transfer.storageID == (signature.length > 0 ? join.storageIDs[i] : 0), // Question (brecht):is this right?
+                    "INVALID_INBOUND_TX_DATA"
+                );
 
-                uint96 refundAmount = transfer.amount.isAlmostEqual(amount) ?
-                    0 :
-                    transfer.amount.sub(amount);
+                // Now approve this transfer
+                transfer.validUntil = 0xffffffff;
+                bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
+                ctx.exchange.approveTransaction(join.owner, txHash);
 
-                {  // Process the inbound transfer
-                    // Replay protection (only necessary when using a signature)
-                    if (signature.length > 0) {
-                        require(transfer.storageID == join.storageIDs[i], "INVALID_TX_DATA");
-                    }
 
-                    // Now approve this transfer
-                    // Question(brecht):should we simply check the value is indeed 0xffffffff???
-                    transfer.validUntil = 0xffffffff;
-                    bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
-                    ctx.exchange.approveTransaction(join.owner, txHash);
-
-                    amount = transfer.amount;
+                uint96 refundAmount = 0;
+                if (!transfer.amount.isAlmostEqual(amount)) {
+                    refundAmount = transfer.amount.sub(amount);
                 }
 
                 if (refundAmount > 0) { // Process the outbound transfer
-                    TransferTransaction.Transfer memory refundTransfer = ctx._block.readTransfer(ctx.txIdx++);
+                    transfer = ctx._block.readTransfer(ctx.txIdx++);
                     ctx.numTransactionsConsumed++;
 
-                    require(refundTransfer.to == join.owner, "INVALID_TX_DATA");
-                    require(refundTransfer.fromAccountID == S.accountID, "INVALID_TX_DATA");
-                    require(refundTransfer.tokenID == ctx.tokens[i].tokenID, "INVALID_TX_DATA");
-                    require(refundTransfer.fee == 0, "INVALID_TX_DATA");
-                    require(refundTransfer.amount.isAlmostEqual(refundAmount), "INVALID_REFUND_VALUE");
+                    // We do not check these fields: toAccountID, from
+                    require(
+                        transfer.fromAccountID == S.accountID &&
+                        transfer.to == join.owner &&
+                        transfer.tokenID == ctx.tokens[i].tokenID &&
+                        transfer.amount.isAlmostEqual(refundAmount) &&
+                        transfer.feeTokenID == 0 &&
+                        transfer.fee == 0 &&
+                        transfer.storageID == 0, // Question (brecht):should we check this?
+                        "INVALID_OUTBOUND_TX_DATA"
+                    );
 
-                    // Question(brecht):should we simply check the value is indeed 0xffffffff???
-                    refundTransfer.validUntil = 0xffffffff;
-                    refundTransfer.storageID = 0;
-                    bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, refundTransfer);
+                    transfer.validUntil = 0xffffffff;
+                    txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
                     ctx.exchange.approveTransaction(address(this), txHash);
-
-                    amount = amount.sub(refundTransfer.amount);
+                    amount = amount.sub(transfer.amount);
                 }
 
                 ctx.ammActualL2Balances[i] = ctx.ammActualL2Balances[i].add(amount);

@@ -44,7 +44,6 @@ library AmmUpdateProcess
             require(update.tokenWeight == (opening ? 0 : ctx.tokens[i].weight), "INVALID_TX_DATA");
 
             // Now approve this AMM update
-            // Question(brecht):should we simply check the value is indeed 0xffffffff???
             update.validUntil = 0xffffffff;
             bytes32 txHash = AmmUpdateTransaction.hashTx(ctx.exchangeDomainSeparator, update);
             ctx.exchange.approveTransaction(address(this), txHash);
