@@ -29,8 +29,9 @@ library AmmJoinRequest
         uint size = S.tokens.length;
         require(amounts.length == size + 1, "INVALID_DATA");
 
+        // Question(brecht): I don't understand this part, may be reasonable inside
+        // the withdrawlFromPool function, but I'm not sure it's necessary at all.
         if (S.isExiting[msg.sender]) {
-            // Q: 这个标记的用途？
             // This could suddenly change the amount of liquidity tokens available, which
             // could change how the operator needs to process the exit.
             require(amounts[0] == 0, "CANNOT_DEPOSIT_LIQUIDITY_TOKENS_WHILE_EXITING");
