@@ -29,7 +29,7 @@ library AmmExitProcess
     using SafeCast          for uint;
     using TransactionReader for ExchangeData.Block;
 
-    function withdrawFromExchange(
+    function proxcessExchangeWithdrawal(
         AmmData.State    storage S,
         AmmData.Context  memory  ctx,
         AmmData.Token    memory  token,
@@ -39,6 +39,8 @@ library AmmExitProcess
     {
         // Check that the withdrawal in the block matches the expected withdrawal
         WithdrawTransaction.Withdrawal memory withdrawal = ctx._block.readWithdrawal(ctx.txIdx++);
+        ctx.numTransactionsConsumed++;
+
         require(withdrawal.owner == address(this), "INVALID_TX_DATA");
         require(withdrawal.accountID == S.accountID, "INVALID_TX_DATA");
         require(withdrawal.tokenID == token.tokenID, "INVALID_TX_DATA");
@@ -59,11 +61,10 @@ library AmmExitProcess
         require(withdrawal.onchainDataHash == onchainDataHash, "INVALID_TX_DATA");
 
         // Now approve this withdrawal
+        // Question(brecht):should we simply check the value is indeed 0xffffffff???
         withdrawal.validUntil = 0xffffffff;
         bytes32 txHash = WithdrawTransaction.hashTx(ctx.exchangeDomainSeparator, withdrawal);
         ctx.exchange.approveTransaction(address(this), txHash);
-
-        ctx.numTransactionsConsumed++;
 
         // Total balance in this contract increases by the amount withdrawn
         S.totalLockedBalance[token.addr] = S.totalLockedBalance[token.addr].add(amount);
@@ -78,7 +79,7 @@ library AmmExitProcess
         internal
         returns (bool valid)
     {
-        S.authenticatePoolTx(
+        S.validatePoolTransaction(
             exit.owner,
             AmmUtil.hashPoolExit(ctx.domainSeperator, exit),
             signature
@@ -98,6 +99,8 @@ library AmmExitProcess
             uint96 amount = amounts[i];
             if (exit.toLayer2) {
                 TransferTransaction.Transfer memory transfer = ctx._block.readTransfer(ctx.txIdx++);
+                ctx.numTransactionsConsumed++;
+
                 require(transfer.fromAccountID == S.accountID, "INVALID_TX_DATA");
                 require(transfer.from == address(this), "INVALID_TX_DATA");
                 require(transfer.to == exit.owner, "INVALID_TX_DATA");
@@ -111,11 +114,10 @@ library AmmExitProcess
                 }
 
                 // Now approve this transfer
+                // Question(brecht):should we simply check the value is indeed 0xffffffff???
                 transfer.validUntil = 0xffffffff;
                 bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
                 ctx.exchange.approveTransaction(address(this), txHash);
-
-                ctx.numTransactionsConsumed++;
 
                 // Update the amount to the actual amount transferred (which can have some some small rounding errors)
                 amount = transfer.amount;

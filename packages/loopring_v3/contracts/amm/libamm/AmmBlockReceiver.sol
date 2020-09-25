@@ -38,6 +38,7 @@ library AmmBlockReceiver
         AmmData.Context memory ctx = AmmData.Context({
             _block: _block,
             exchange: S.exchange,
+            exchangeDepositContract: address(S.exchange.getDepositContract()),
             txIdx: txIdx,
             domainSeperator: S.domainSeperator,
             exchangeDomainSeparator: S.exchange.getDomainSeparator(),
@@ -112,13 +113,13 @@ library AmmBlockReceiver
         private
     {
         if (ammExpectedL2Balance > ammActualL2Balance) {
-            S.depositToExchange(
+            S.proxcessExchangeDeposit(
                 ctx,
                 token,
                 ammExpectedL2Balance - ammActualL2Balance
             );
         } else if (ammExpectedL2Balance < ammActualL2Balance) {
-            S.withdrawFromExchange(
+            S.proxcessExchangeWithdrawal(
                 ctx,
                 token,
                 ammActualL2Balance - ammExpectedL2Balance

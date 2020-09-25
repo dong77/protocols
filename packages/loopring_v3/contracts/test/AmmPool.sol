@@ -609,6 +609,7 @@ contract AmmPool is LPERC20, IBlockReceiver, IAgent {
             require(update.feeBips == feeBips, "INVALID_TX_DATA");
             require(update.tokenWeight == (start ? 0 : ctx.tokens[i].weight), "INVALID_TX_DATA");
             // Now approve this AMM update
+            // Question(brecht):should we simply check the value is indeed 0xffffffff???
             update.validUntil = 0xffffffff;
             bytes32 txHash = AmmUpdateTransaction.hashTx(ctx.exchangeDomainSeparator, update);
             exchange.approveTransaction(address(this), txHash);
@@ -658,6 +659,7 @@ contract AmmPool is LPERC20, IBlockReceiver, IAgent {
                 }
 
                 // Now approve this transfer
+                // Question(brecht):should we simply check the value is indeed 0xffffffff???
                 transfer.validUntil = 0xffffffff;
                 bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
                 exchange.approveTransaction(join.owner, txHash);
@@ -770,6 +772,7 @@ contract AmmPool is LPERC20, IBlockReceiver, IAgent {
                     }
 
                     // Now approve this transfer
+                    // Question(brecht):should we simply check the value is indeed 0xffffffff???
                     transfer.validUntil = 0xffffffff;
                     bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
                     exchange.approveTransaction(address(this), txHash);
@@ -902,6 +905,7 @@ contract AmmPool is LPERC20, IBlockReceiver, IAgent {
         );
         require(withdrawal.onchainDataHash == onchainDataHash, "INVALID_TX_DATA");
         // Now approve this withdrawal
+        // Question(brecht):should we simply check the value is indeed 0xffffffff???
         withdrawal.validUntil = 0xffffffff;
         bytes32 txHash = WithdrawTransaction.hashTx(ctx.exchangeDomainSeparator, withdrawal);
         exchange.approveTransaction(address(this), txHash);

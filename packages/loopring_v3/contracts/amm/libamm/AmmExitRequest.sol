@@ -50,7 +50,7 @@ library AmmExitRequest
             S, poolAmount, amounts, signature, validUntil
         );
 
-        _withdrawFromExchangeApprovedWithdrawals(S);
+        _proxcessExchangeWithdrawalApprovedWithdrawals(S);
 
         // Withdraw
         uint size = S.tokens.length;
@@ -158,7 +158,7 @@ library AmmExitRequest
     }
 
     // Withdraw any outstanding balances for the pool account on the exchange
-    function _withdrawFromExchangeApprovedWithdrawals(AmmData.State storage S)
+    function _proxcessExchangeWithdrawalApprovedWithdrawals(AmmData.State storage S)
         private
     {
         address[] memory owners = new address[](S.tokens.length);

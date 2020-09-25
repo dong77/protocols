@@ -113,7 +113,7 @@ library AmmStatus
         }
     }
 
-    function authenticatePoolTx(
+    function validatePoolTransaction(
         AmmData.State storage S,
         address        owner,
         bytes32        poolTxHash,

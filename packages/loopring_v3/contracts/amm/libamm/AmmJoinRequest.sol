@@ -55,7 +55,12 @@ library AmmJoinRequest
         public
         returns(AmmData.PoolJoin memory join)
     {
-        require(maxAmountsIn.length == S.tokens.length, "INVALID_DATA");
+        uint size =  S.tokens.length;
+        require(maxAmountsIn.length == size, "INVALID_DATA");
+
+        for (uint i = 0; i < size; i++) {
+            require(maxAmountsIn[i] > 0, "INVALID_JOIN_AMOUNT");
+        }
 
         // Don't check the available funds here, if the operator isn't sure the funds
         // are locked this transaction can simply be dropped.

@@ -29,7 +29,7 @@ library AmmJoinProcess
     using SafeCast          for uint;
     using TransactionReader for ExchangeData.Block;
 
-    function depositToExchange(
+    function proxcessExchangeDeposit(
         AmmData.State    storage S,
         AmmData.Context  memory  ctx,
         AmmData.Token    memory  token,
@@ -37,8 +37,12 @@ library AmmJoinProcess
         )
         internal
     {
+        require(amount > 0, "INVALID_DEPOSIT_AMOUNT");
+
         // Check that the deposit in the block matches the expected deposit
         DepositTransaction.Deposit memory deposit = ctx._block.readDeposit(ctx.txIdx++);
+        ctx.numTransactionsConsumed++;
+
         require(deposit.owner == address(this), "INVALID_TX_DATA");
         require(deposit.accountID == S.accountID, "INVALID_TX_DATA");
         require(deposit.tokenID == token.tokenID, "INVALID_TX_DATA");
@@ -51,11 +55,10 @@ library AmmJoinProcess
         if (token.addr == address(0)) {
             ethValue = amount;
         } else {
-            address depositContract = address(ctx.exchange.getDepositContract());
-            uint allowance = ERC20(token.addr).allowance(address(this), depositContract);
+            uint allowance = ERC20(token.addr).allowance(address(this), ctx.exchangeDepositContract);
             if (allowance < amount) {
                 // Approve the deposit transfer
-                ERC20(token.addr).approve(depositContract, uint(-1));
+                ERC20(token.addr).approve(ctx.exchangeDepositContract, uint(-1));
             }
         }
 
@@ -63,10 +66,10 @@ library AmmJoinProcess
             deposit.owner,
             deposit.owner,
             token.addr,
-            uint96(deposit.amount),
+            deposit.amount,
             new bytes(0)
         );
-        ctx.numTransactionsConsumed++;
+
         // Total balance in this contract decreases by the amount deposited
         S.totalLockedBalance[token.addr] = S.totalLockedBalance[token.addr].sub(amount);
     }
@@ -79,55 +82,81 @@ library AmmJoinProcess
         )
         internal
     {
-        S.authenticatePoolTx(
+        S.validatePoolTransaction(
             join.owner,
             AmmUtil.hashPoolJoin(ctx.domainSeperator, join),
             signature
         );
 
         // Check if the requirements are fulfilled
-        (bool valid, uint poolAmountOut, uint96[] memory amounts) = _validateJoinAmounts(ctx, join);
+        (bool valid, uint poolAmountOut, uint96[] memory amounts) = _calculateJoinAmounts(ctx, join);
 
         if (!valid) return;
 
-        S.mint(join.owner, poolAmountOut);
-
         for (uint i = 0; i < ctx.size; i++) {
             uint96 amount = amounts[i];
+
             if (join.fromLayer2) {
                 TransferTransaction.Transfer memory transfer = ctx._block.readTransfer(ctx.txIdx++);
+                ctx.numTransactionsConsumed++;
+
                 require(transfer.from == join.owner, "INVALID_TX_DATA");
                 require(transfer.toAccountID == S.accountID, "INVALID_TX_DATA");
                 require(transfer.tokenID == ctx.tokens[i].tokenID, "INVALID_TX_DATA");
-                require(transfer.amount.isAlmostEqual(amount), "INVALID_TX_DATA");
                 require(transfer.fee == 0, "INVALID_TX_DATA");
 
-                // Replay protection (only necessary when using a signature)
-                if (signature.length > 0) {
-                    require(transfer.storageID == join.storageIDs[i], "INVALID_TX_DATA");
+                uint96 refundAmount = transfer.amount.isAlmostEqual(amount) ?
+                    0 :
+                    transfer.amount.sub(amount);
+
+                {
+                    // Replay protection (only necessary when using a signature)
+                    if (signature.length > 0) {
+                        require(transfer.storageID == join.storageIDs[i], "INVALID_TX_DATA");
+                    }
+
+                    // Now approve this transfer
+                    // Question(brecht):should we simply check the value is indeed 0xffffffff???
+                    transfer.validUntil = 0xffffffff;
+                    bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
+                    ctx.exchange.approveTransaction(join.owner, txHash);
+
+                    amount = transfer.amount;
                 }
 
-                // Now approve this transfer
-                transfer.validUntil = 0xffffffff;
-                bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
-                ctx.exchange.approveTransaction(join.owner, txHash);
+                if (refundAmount > 0) {
+                    TransferTransaction.Transfer memory refundTransfer = ctx._block.readTransfer(ctx.txIdx++);
+                    ctx.numTransactionsConsumed++;
 
-                ctx.numTransactionsConsumed++;
-                // Update the amount to the actual amount transferred (which can have some some small rounding errors)
-                amount = transfer.amount;
-                // Update the balances in the account
-                // Q: 为什么更新这个呢？
+                    require(refundTransfer.to == join.owner, "INVALID_TX_DATA");
+                    require(refundTransfer.fromAccountID == S.accountID, "INVALID_TX_DATA");
+                    require(refundTransfer.tokenID == ctx.tokens[i].tokenID, "INVALID_TX_DATA");
+                    require(refundTransfer.fee == 0, "INVALID_TX_DATA");
+                    require(refundTransfer.amount.isAlmostEqual(refundAmount), "INVALID_REFUND_VALUE");
+
+                    // Question(brecht):should we simply check the value is indeed 0xffffffff???
+                    refundTransfer.validUntil = 0xffffffff;
+                    bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, refundTransfer);
+                    ctx.exchange.approveTransaction(address(this), txHash);
+
+                    amount = amount.sub(refundTransfer.amount);
+                }
+
                 ctx.ammActualL2Balances[i] = ctx.ammActualL2Balances[i].add(amount);
+
             } else {
                 // Make the amount unavailable for withdrawing
                 address token = ctx.tokens[i].addr;
                 S.lockedBalance[token][join.owner] = S.lockedBalance[token][join.owner].sub(amount);
             }
+
             ctx.ammExpectedL2Balances[i] = ctx.ammExpectedL2Balances[i].add(amount);
         }
+
+        S.mint(join.owner, poolAmountOut);
     }
 
-    function _validateJoinAmounts(
+    function _calculateJoinAmounts(
         AmmData.Context  memory ctx,
         AmmData.PoolJoin memory join
         )
@@ -141,6 +170,7 @@ library AmmJoinProcess
     {
         // Check if we can still use this join
         amounts = new uint96[](ctx.size);
+
         if (block.timestamp > join.validUntil) {
             return (false, 0, amounts);
         }

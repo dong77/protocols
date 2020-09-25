@@ -71,6 +71,7 @@ library AmmData
     {
         ExchangeData.Block _block;
         IExchangeV3        exchange;
+        address            exchangeDepositContract;
 
         uint     txIdx;
         bytes32  domainSeperator;
