@@ -32,6 +32,8 @@ library AmmExitRequest
         internal
         returns (uint lockedUntil)
     {
+        require(S.lockedUntil[msg.sender] == 0, "UNLOCKED_ALREADY");
+
         lockedUntil = block.timestamp + AmmData.MIN_TIME_TO_UNLOCK();
         S.lockedUntil[msg.sender] = lockedUntil;
     }

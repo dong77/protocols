@@ -36,6 +36,8 @@ library AmmJoinRequest
             require(amounts[0] == 0, "CANNOT_DEPOSIT_LIQUIDITY_TOKENS_WHILE_EXITING");
         }
 
+        S.lockedUntil[msg.sender] = 0;
+
         // Deposit pool tokens
         _depositToken(S, address(this), amounts[0]);
 
