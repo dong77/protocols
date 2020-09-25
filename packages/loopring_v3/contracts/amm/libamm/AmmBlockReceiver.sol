@@ -111,13 +111,13 @@ library AmmBlockReceiver
         private
     {
         if (ammExpectedL2Balance > ammActualL2Balance) {
-            S.processDeposit(
+            S.depositToExchange(
                 ctx,
                 token,
                 ammExpectedL2Balance - ammActualL2Balance
             );
         } else if (ammExpectedL2Balance < ammActualL2Balance) {
-            S.processWithdrawal(
+            S.withdrawFromExchange(
                 ctx,
                 token,
                 ammActualL2Balance - ammExpectedL2Balance

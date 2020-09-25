@@ -28,7 +28,7 @@ library AmmJoinProcess
     using SafeCast          for uint;
     using TransactionReader for ExchangeData.Block;
 
-    function processDeposit(
+    function depositToExchange(
         AmmData.State    storage S,
         AmmData.Context  memory  ctx,
         AmmData.Token    memory  token,

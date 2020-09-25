@@ -22,28 +22,26 @@ library AmmJoinRequest
 
     function deposit(
         AmmData.State storage S,
-        // uint                  poolAmount,
         uint96[]     calldata amounts
         )
         public
     {
         uint size = S.tokens.length;
-        require(amounts.length == size, "INVALID_DATA");
+        require(amounts.length == size + 1, "INVALID_DATA");
 
-        // if (S.isExiting[msg.sender]) {
-        //     // Q: 这个标记的用途？
-        //     // This could suddenly change the amount of liquidity tokens available, which
-        //     // could change how the operator needs to process the exit.
-        //     require(poolAmount == 0, "CANNOT_DEPOSIT_LIQUIDITY_TOKENS_WHILE_EXITING");
-        // }
+        if (S.isExiting[msg.sender]) {
+            // Q: 这个标记的用途？
+            // This could suddenly change the amount of liquidity tokens available, which
+            // could change how the operator needs to process the exit.
+            require(amounts[0] == 0, "CANNOT_DEPOSIT_LIQUIDITY_TOKENS_WHILE_EXITING");
+        }
 
-        // if (poolAmount > 0) {
-        //     address poolToken = address(this);
-        //     _depositToken(S, poolToken, poolAmount);
-        // }
+        // Deposit pool tokens
+        _depositToken(S, address(this), amounts[0]);
 
+        // Deposit AMM tokens
         for (uint i = 0; i < size; i++) {
-            _depositToken(S, S.tokens[i].addr, uint(amounts[i]));
+            _depositToken(S, S.tokens[i].addr, amounts[i + 1]);
         }
     }
 
@@ -85,11 +83,13 @@ library AmmJoinRequest
     {
         if (token == address(0)) {
             require(msg.value == amount, "INVALID_ETH_DEPOSIT");
-        } else {
+        } else if (amount > 0) {
             token.safeTransferFromAndVerify(msg.sender, address(this), amount);
         }
 
-        S.lockedBalance[token][msg.sender] = S.lockedBalance[token][msg.sender].add(amount);
-        S.totalLockedBalance[token] = S.totalLockedBalance[token].add(amount);
+        if (amount > 0) {
+            S.lockedBalance[token][msg.sender] = S.lockedBalance[token][msg.sender].add(amount);
+            S.totalLockedBalance[token] = S.totalLockedBalance[token].add(amount);
+        }
     }
 }
