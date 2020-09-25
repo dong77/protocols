@@ -25,7 +25,7 @@ library AmmExitRequest
     using SignatureUtil     for bytes32;
 
     bytes32 constant public WITHDRAW_TYPEHASH = keccak256(
-        "Withdraw(address owner,uint256 poolAmount,uint256[] amounts,uint256 validUntil,uint256 nonce)"
+        "Withdraw(address owner,uint256[] amounts,uint256 validUntil,uint256 nonce)"
     );
 
     function unlock(AmmData.State storage S)
@@ -40,7 +40,6 @@ library AmmExitRequest
 
     function withdrawFromPool(
         AmmData.State storage S,
-        uint                  poolAmount,
         uint[]       calldata amounts,
         bytes        calldata signature, // signature from Exchange operator
         uint                  validUntil
@@ -48,23 +47,23 @@ library AmmExitRequest
         public
         returns (uint[] memory amountOuts)
     {
-        bool approved = _checkOperatorApproval(
-            S, poolAmount, amounts, signature, validUntil
-        );
+        uint size = S.tokens.length;
+        require(amounts.length == size + 1, "INVALID_DATA");
 
         _proxcessExchangeWithdrawalApprovedWithdrawals(S);
 
-        // Withdraw
-        uint size = S.tokens.length;
-        amountOuts = new uint[](size + 1);
+        bool approvedByOperator = _checkOperatorApproval(
+            S, amounts, signature, validUntil
+        );
 
+        amountOuts = new uint[](size + 1);
         amountOuts[0] = _withdrawToken(
-            S, address(this), poolAmount, approved
+            S, address(this), amounts[0], approvedByOperator
         );
 
         for (uint i = 0; i < size; i++) {
             amountOuts[i + 1] = _withdrawToken(
-                S, S.tokens[i].addr, amounts[i], approved
+                S, S.tokens[i].addr, amounts[i + 1], approvedByOperator
             );
         }
     }
@@ -101,7 +100,6 @@ library AmmExitRequest
 
     function _checkOperatorApproval(
         AmmData.State storage S,
-        uint                  poolAmount,
         uint[]       calldata amounts,
         bytes        calldata signature, // signature from Exchange operator
         uint                  validUntil
@@ -109,7 +107,7 @@ library AmmExitRequest
         private
         returns (bool)
     {
-        require(amounts.length == S.tokens.length, "INVALID_DATA");
+
         // Check if we can withdraw without unlocking with an approval
         // from the operator.
         if (signature.length == 0) {
@@ -118,13 +116,13 @@ library AmmExitRequest
         }
 
         require(validUntil >= block.timestamp, 'SIGNATURE_EXPIRED');
+
         bytes32 withdrawHash = EIP712.hashPacked(
             S.domainSeperator,
             keccak256(
                 abi.encode(
                     WITHDRAW_TYPEHASH,
                     msg.sender,
-                    poolAmount,
                     keccak256(abi.encodePacked(amounts)),
                     validUntil,
                     S.nonces[msg.sender]++

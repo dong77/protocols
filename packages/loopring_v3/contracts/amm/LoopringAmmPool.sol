@@ -92,18 +92,17 @@ contract LoopringAmmPool is
         state.withdrawFromPoolWhenShutdown(poolAmountIn);
     }
 
-    function deposit(uint96[] calldata maxAmountsIn)
+    function deposit(uint96[] calldata amounts)
         external
         payable
         onlyWhenOnline
         nonReentrant
     {
-        state.depositToPool(maxAmountsIn);
-        emit Deposit(msg.sender, maxAmountsIn);
+        state.depositToPool(amounts);
+        emit Deposit(msg.sender, amounts);
     }
 
     function withdraw(
-        uint            poolAmount,
         uint[] calldata amounts,
         bytes  calldata signature,
         uint            validUntil
@@ -112,7 +111,6 @@ contract LoopringAmmPool is
         nonReentrant
     {
         uint[] memory amountOuts = state.withdrawFromPool(
-            poolAmount,
             amounts,
             signature,
             validUntil
