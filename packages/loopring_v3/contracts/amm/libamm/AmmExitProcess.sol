@@ -22,6 +22,7 @@ library AmmExitProcess
 {
     using AmmPoolToken      for AmmData.State;
     using AmmStatus         for AmmData.State;
+    using AmmUtil           for uint96;
     using ERC20SafeTransfer for address;
     using MathUint          for uint;
     using MathUint96        for uint96;
@@ -34,13 +35,15 @@ library AmmExitProcess
         AmmData.Token    memory  token,
         uint                     amount
         )
-        public
+        internal
     {
         // Check that the withdrawal in the block matches the expected withdrawal
         WithdrawTransaction.Withdrawal memory withdrawal = ctx._block.readWithdrawal(ctx.txIdx++);
         require(withdrawal.owner == address(this), "INVALID_TX_DATA");
         require(withdrawal.accountID == S.accountID, "INVALID_TX_DATA");
         require(withdrawal.tokenID == token.tokenID, "INVALID_TX_DATA");
+        // Question(brecht):should we use the following?
+        // require(withdrawal.amount.isAlmostEqual(amount), "INVALID_TX_DATA");
         require(withdrawal.amount == amount, "INVALID_TX_DATA");
         require(withdrawal.feeTokenID == withdrawal.tokenID, "INVALID_TX_DATA");
         require(withdrawal.fee == 0, "INVALID_TX_DATA");
@@ -99,7 +102,7 @@ library AmmExitProcess
                 require(transfer.from == address(this), "INVALID_TX_DATA");
                 require(transfer.to == exit.owner, "INVALID_TX_DATA");
                 require(transfer.tokenID == ctx.tokens[i].tokenID, "INVALID_TX_DATA");
-                require(AmmUtil.isAlmostEqual(transfer.amount, amount), "INVALID_TX_DATA");
+                require(transfer.amount.isAlmostEqual(amount), "INVALID_TX_DATA");
                 require(transfer.fee == 0, "INVALID_TX_DATA");
 
                 if (signature.length != 0) {

@@ -22,6 +22,7 @@ library AmmJoinProcess
 {
     using AmmPoolToken      for AmmData.State;
     using AmmStatus         for AmmData.State;
+    using AmmUtil           for uint96;
     using ERC20SafeTransfer for address;
     using MathUint          for uint;
     using MathUint96        for uint96;
@@ -34,14 +35,16 @@ library AmmJoinProcess
         AmmData.Token    memory  token,
         uint96                   amount
         )
-        public
+        internal
     {
         // Check that the deposit in the block matches the expected deposit
-        DepositTransaction.Deposit memory _deposit = ctx._block.readDeposit(ctx.txIdx++);
-        require(_deposit.owner == address(this), "INVALID_TX_DATA");
-        require(_deposit.accountID == S.accountID, "INVALID_TX_DATA");
-        require(_deposit.tokenID == token.tokenID, "INVALID_TX_DATA");
-        require(_deposit.amount == amount, "INVALID_TX_DATA");
+        DepositTransaction.Deposit memory deposit = ctx._block.readDeposit(ctx.txIdx++);
+        require(deposit.owner == address(this), "INVALID_TX_DATA");
+        require(deposit.accountID == S.accountID, "INVALID_TX_DATA");
+        require(deposit.tokenID == token.tokenID, "INVALID_TX_DATA");
+        // Question(Brecht):should use this:
+        // require(deposit.amount.isAlmostEqual(amount), "INVALID_TX_DATA");
+        require(deposit.amount == amount, "INVALID_TX_DATA");
 
         // Now do this deposit
         uint ethValue = 0;
@@ -57,10 +60,10 @@ library AmmJoinProcess
         }
 
         S.exchange.deposit{value: ethValue}(
-            _deposit.owner,
-            _deposit.owner,
+            deposit.owner,
+            deposit.owner,
             token.addr,
-            uint96(_deposit.amount),
+            uint96(deposit.amount),
             new bytes(0)
         );
         ctx.numTransactionsConsumed++;
@@ -96,7 +99,7 @@ library AmmJoinProcess
                 require(transfer.from == join.owner, "INVALID_TX_DATA");
                 require(transfer.toAccountID == S.accountID, "INVALID_TX_DATA");
                 require(transfer.tokenID == ctx.tokens[i].tokenID, "INVALID_TX_DATA");
-                require(AmmUtil.isAlmostEqual(transfer.amount, amount), "INVALID_TX_DATA");
+                require(transfer.amount.isAlmostEqual(amount), "INVALID_TX_DATA");
                 require(transfer.fee == 0, "INVALID_TX_DATA");
 
                 // Replay protection (only necessary when using a signature)
