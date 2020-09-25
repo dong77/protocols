@@ -47,8 +47,6 @@ library AmmUpdateProcess
             bytes32 txHash = AmmUpdateTransaction.hashTx(ctx.exchangeDomainSeparator, update);
             S.exchange.approveTransaction(address(this), txHash);
 
-            ctx.numTransactionsConsumed++;
-
             if (opening) {
                 // AMM account balance now available onchain
                 ctx.ammActualL2Balances[i]   = update.balance;
@@ -56,6 +54,8 @@ library AmmUpdateProcess
             } else {
                 require(ctx.ammExpectedL2Balances[i] == update.balance, "UNEXPECTED_AMM_BALANCE");
             }
+
+            ctx.numTransactionsConsumed++;
         }
     }
 }
