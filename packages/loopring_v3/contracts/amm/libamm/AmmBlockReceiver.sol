@@ -37,6 +37,7 @@ library AmmBlockReceiver
         uint size = S.tokens.length;
         AmmData.Context memory ctx = AmmData.Context({
             _block: _block,
+            exchange: S.exchange,
             txIdx: txIdx,
             domainSeperator: S.domainSeperator,
             exchangeDomainSeparator: S.exchange.getDomainSeparator(),
@@ -51,7 +52,7 @@ library AmmBlockReceiver
         });
 
         BlockReader.BlockHeader memory header = _block.readHeader();
-        require(header.exchange == address(S.exchange), "INVALID_EXCHANGE");
+        require(header.exchange == address(ctx.exchange), "INVALID_EXCHANGE");
 
         // The openning AMM updates
         // This also pulls the AMM balances onchain.

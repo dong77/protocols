@@ -70,6 +70,7 @@ library AmmData
     struct Context
     {
         ExchangeData.Block _block;
+        IExchangeV3        exchange;
 
         uint     txIdx;
         bytes32  domainSeperator;

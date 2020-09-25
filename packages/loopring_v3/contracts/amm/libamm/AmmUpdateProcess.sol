@@ -45,7 +45,7 @@ library AmmUpdateProcess
             // Now approve this AMM update
             update.validUntil = 0xffffffff;
             bytes32 txHash = AmmUpdateTransaction.hashTx(ctx.exchangeDomainSeparator, update);
-            S.exchange.approveTransaction(address(this), txHash);
+            ctx.exchange.approveTransaction(address(this), txHash);
 
             if (opening) {
                 // AMM account balance now available onchain

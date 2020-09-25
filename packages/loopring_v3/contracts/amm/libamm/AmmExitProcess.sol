@@ -61,7 +61,7 @@ library AmmExitProcess
         // Now approve this withdrawal
         withdrawal.validUntil = 0xffffffff;
         bytes32 txHash = WithdrawTransaction.hashTx(ctx.exchangeDomainSeparator, withdrawal);
-        S.exchange.approveTransaction(address(this), txHash);
+        ctx.exchange.approveTransaction(address(this), txHash);
 
         ctx.numTransactionsConsumed++;
 
@@ -113,7 +113,7 @@ library AmmExitProcess
                 // Now approve this transfer
                 transfer.validUntil = 0xffffffff;
                 bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
-                S.exchange.approveTransaction(address(this), txHash);
+                ctx.exchange.approveTransaction(address(this), txHash);
 
                 ctx.numTransactionsConsumed++;
 

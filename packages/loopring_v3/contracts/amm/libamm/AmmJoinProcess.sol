@@ -51,7 +51,7 @@ library AmmJoinProcess
         if (token.addr == address(0)) {
             ethValue = amount;
         } else {
-            address depositContract = address(S.exchange.getDepositContract());
+            address depositContract = address(ctx.exchange.getDepositContract());
             uint allowance = ERC20(token.addr).allowance(address(this), depositContract);
             if (allowance < amount) {
                 // Approve the deposit transfer
@@ -59,7 +59,7 @@ library AmmJoinProcess
             }
         }
 
-        S.exchange.deposit{value: ethValue}(
+        ctx.exchange.deposit{value: ethValue}(
             deposit.owner,
             deposit.owner,
             token.addr,
@@ -110,7 +110,7 @@ library AmmJoinProcess
                 // Now approve this transfer
                 transfer.validUntil = 0xffffffff;
                 bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, transfer);
-                S.exchange.approveTransaction(join.owner, txHash);
+                ctx.exchange.approveTransaction(join.owner, txHash);
 
                 ctx.numTransactionsConsumed++;
                 // Update the amount to the actual amount transferred (which can have some some small rounding errors)
