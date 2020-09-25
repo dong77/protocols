@@ -36,7 +36,7 @@ library AmmExitRequest
         S.lockedUntil[msg.sender] = lockedUntil;
     }
 
-    function withdraw(
+    function withdrawFromPool(
         AmmData.State storage S,
         uint                  poolAmount,
         uint[]       calldata amounts,

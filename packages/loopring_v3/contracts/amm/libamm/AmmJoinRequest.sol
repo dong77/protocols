@@ -20,7 +20,7 @@ library AmmJoinRequest
     using MathUint96        for uint96;
     using SafeCast          for uint;
 
-    function deposit(
+    function depositToPool(
         AmmData.State storage S,
         uint96[]     calldata amounts
         )
