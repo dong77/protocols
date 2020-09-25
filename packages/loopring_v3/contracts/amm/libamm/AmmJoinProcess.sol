@@ -89,9 +89,9 @@ library AmmJoinProcess
         );
 
         // Check if the requirements are fulfilled
-        (bool valid, uint poolAmountOut, uint96[] memory amounts) = _calculateJoinAmounts(ctx, join);
+        (bool slippageRequirementMet, uint poolAmountOut, uint96[] memory amounts) = _calculateJoinAmounts(ctx, join);
 
-        if (!valid) return;
+        if (!slippageRequirementMet) return;
 
         for (uint i = 0; i < ctx.size; i++) {
             uint96 amount = amounts[i];
@@ -109,7 +109,7 @@ library AmmJoinProcess
                     0 :
                     transfer.amount.sub(amount);
 
-                {
+                {  // Process the inbound transfer
                     // Replay protection (only necessary when using a signature)
                     if (signature.length > 0) {
                         require(transfer.storageID == join.storageIDs[i], "INVALID_TX_DATA");
@@ -124,7 +124,7 @@ library AmmJoinProcess
                     amount = transfer.amount;
                 }
 
-                if (refundAmount > 0) {
+                if (refundAmount > 0) { // Process the outbound transfer
                     TransferTransaction.Transfer memory refundTransfer = ctx._block.readTransfer(ctx.txIdx++);
                     ctx.numTransactionsConsumed++;
 
@@ -136,6 +136,7 @@ library AmmJoinProcess
 
                     // Question(brecht):should we simply check the value is indeed 0xffffffff???
                     refundTransfer.validUntil = 0xffffffff;
+                    refundTransfer.storageID = 0;
                     bytes32 txHash = TransferTransaction.hashTx(ctx.exchangeDomainSeparator, refundTransfer);
                     ctx.exchange.approveTransaction(address(this), txHash);
 
@@ -163,7 +164,7 @@ library AmmJoinProcess
         private
         view
         returns(
-            bool            valid,
+            bool            slippageRequirementMet,
             uint            poolAmountOut,
             uint96[] memory amounts
         )
@@ -180,15 +181,13 @@ library AmmJoinProcess
         }
 
         // Calculate the amount of liquidity tokens that should be minted
-        bool initialValueSet = false;
         for (uint i = 0; i < ctx.size; i++) {
             if (ctx.ammExpectedL2Balances[i] > 0) {
-                uint amountOut = uint(
-                    join.maxAmountsIn[i]).mul(ctx.poolTokenTotalSupply) / uint(ctx.ammExpectedL2Balances[i]
-                );
-                if (!initialValueSet || amountOut < poolAmountOut) {
+                uint amountOut = uint(join.maxAmountsIn[i])
+                    .mul(ctx.poolTokenTotalSupply) / uint(ctx.ammExpectedL2Balances[i]);
+
+                if (poolAmountOut == 0 || amountOut < poolAmountOut) {
                     poolAmountOut = amountOut;
-                    initialValueSet = true;
                 }
             }
         }
@@ -201,10 +200,10 @@ library AmmJoinProcess
         uint ratio = poolAmountOut.mul(ctx.poolTokenBase) / ctx.poolTokenTotalSupply;
 
         for (uint i = 0; i < ctx.size; i++) {
-            amounts[i] = (ratio.mul(ctx.ammExpectedL2Balances[i]) / ctx.poolTokenBase).toUint96();
+            amounts[i] = ratio.mul(ctx.ammExpectedL2Balances[i] / ctx.poolTokenBase).toUint96();
         }
 
-        valid = (poolAmountOut >= join.minPoolAmountOut);
-        return (valid, poolAmountOut, amounts);
+        slippageRequirementMet = (poolAmountOut >= join.minPoolAmountOut);
+        return (slippageRequirementMet, poolAmountOut, amounts);
     }
 }
