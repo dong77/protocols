@@ -65,26 +65,11 @@ contract LoopringAmmPool is
 
     receive() payable external {}
 
-    function init(
-        IExchangeV3        _exchange,
-        uint32             _accountID,
-        address[] calldata _tokens,
-        uint96[]  calldata _weights,
-        uint8              _feeBips,
-        string    calldata _tokenName,
-        string    calldata _tokenSymbol
-        )
+    function setupPool(AmmData.PoolConfig calldata config)
         external
         nonReentrant
     {
-        require(
-            bytes(_tokenName).length > 0 && bytes(_tokenSymbol).length > 0,
-            "INVALID_NAME_OR_SYMBOL"
-        );
-        state.name = _tokenName;
-        state.symbol = _tokenSymbol;
-
-        state.setupPool(_exchange, _accountID, _tokens, _weights, _feeBips);
+        state.setupPool(config);
     }
 
     // Anyone is able to shut down the pool when requests aren't being processed any more.
@@ -107,15 +92,13 @@ contract LoopringAmmPool is
         state.withdrawFromPoolWhenShutdown(poolAmountIn);
     }
 
-    function deposit(
-        uint96[] calldata maxAmountsIn
-        )
+    function deposit(uint96[] calldata maxAmountsIn)
         external
         payable
         onlyWhenOnline
         nonReentrant
     {
-        state.deposit(maxAmountsIn);
+        state.depositToPool(maxAmountsIn);
         emit Deposit(msg.sender, maxAmountsIn);
     }
 
@@ -128,7 +111,7 @@ contract LoopringAmmPool is
         external
         nonReentrant
     {
-        uint[] memory amountOuts = state.withdraw(
+        uint[] memory amountOuts = state.withdrawFromPool(
             poolAmount,
             amounts,
             signature,
